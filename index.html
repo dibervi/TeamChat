@@ -54,14 +54,15 @@
       position: absolute;
       top: 0; left: 0;
       width: 100%; height: 100%;
-      opacity: 0;
-      z-index: 10;
+      opacity: 1;
       background: transparent;
       border: none;
       color: transparent;
       caret-color: #e0ffff;
-      font-size: 0;
+      font-size: 16px;
       outline: none;
+      z-index: 10;
+      cursor: text;
     }
     #nameInput:focus { outline: none; }
 
@@ -90,7 +91,7 @@
       <text id="rune-name" x="130" y="75" font-size="28" fill="#e0ffff" text-anchor="middle" font-family="serif"></text>
       <g id="rune-circle"></g>
     </svg>
-    <input id="nameInput" placeholder="Klikni sem a napiš jméno" value="">
+    <input id="nameInput" placeholder="Klikni sem a napiš jméno" value="" autocomplete="off" autocorrect="off">
   </div>
 
   <button class="connect" onclick="connect()">
