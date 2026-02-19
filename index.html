@@ -255,7 +255,7 @@
       } catch(e) { alert("Mikrofon je nutný!"); }
     });
 
-    function handleCall(call) {
+function handleCall(call) {
       if (!activePeers.has(call.peer)) {
         document.getElementById('ui-panel').classList.add('ui-hidden');
         const seatIndex = activePeers.size + 1;
@@ -266,6 +266,41 @@
           s.setAttribute('data-name', 'HOST (' + call.peer + ')');
         }
       }
+
+      // OPRAVENÁ ČÁST PRO PŘEHRÁVÁNÍ HLASU
+      call.on('stream', remoteStream => { 
+        // Zkontrolujeme, jestli už pro tohoto člověka nemáme vytvořený "reproduktor"
+        let audioElement = document.getElementById('audio-' + call.peer);
+        
+        if (!audioElement) {
+          // Pokud ne, vytvoříme ho a fyzicky ho vložíme do stránky (neviditelně)
+          audioElement = document.createElement('audio');
+          audioElement.id = 'audio-' + call.peer;
+          audioElement.autoplay = true; // Prohlížeč ví, že má hrát hned
+          document.body.appendChild(audioElement);
+        }
+        
+        // Pošleme hlas do tohoto elementu
+        audioElement.srcObject = remoteStream;
+        
+        // Pokusíme se přehrát
+        audioElement.play().catch(err => {
+          console.log("Prohlížeč čeká na tvou interakci, než pustí zvuk:", err);
+        });
+      });
+
+      call.on('close', () => {
+          // ÚKLID: Když někdo odejde, smažeme jeho runu i jeho "reproduktor"
+          const idx = activePeers.get(call.peer);
+          if(idx) document.getElementById('star-' + idx).classList.remove('active');
+          activePeers.delete(call.peer);
+          
+          const audioElement = document.getElementById('audio-' + call.peer);
+          if (audioElement) audioElement.remove();
+
+          if(activePeers.size === 0) document.getElementById('ui-panel').classList.remove('ui-hidden');
+      });
+    }
       call.on('stream', s => { const a = new Audio(); a.srcObject = s; a.play(); });
       call.on('close', () => {
           const idx = activePeers.get(call.peer);
