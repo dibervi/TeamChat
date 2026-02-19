@@ -56,7 +56,6 @@
       width: 85vmin; height: 85vmin;
       display: flex; align-items: center; justify-content: center;
       z-index: 4;
-      transition: transform 0.1s ease-out;
     }
 
     .star {
@@ -81,12 +80,12 @@
     }
     .star:hover::after { opacity: 0.8; }
 
+    .star.active { color: var(--gold); animation: breathe 5s infinite; }
+    
     @keyframes breathe {
       0%, 100% { opacity: 0.4; transform: scale(1); }
-      50% { opacity: 0.8; transform: scale(1.05); color: #8a6d3b; }
+      50% { opacity: 0.8; transform: scale(1.05); }
     }
-
-    .star.active { color: var(--gold); animation: breathe 5s infinite; }
 
     .star.speaking {
       animation: none !important;
@@ -153,16 +152,22 @@
     let myPeer, myStream;
     let activePeers = new Map();
 
-    // --- ZVUKY ---
-    const sndAnvil = new Audio('https://www.soundjay.com/mechanical/sounds/anvil-hit-01.mp3');
-    const sndWood = new Audio('https://www.soundjay.com/buttons/sounds/button-20.mp3');
+    // --- NOVÉ CC0 ZVUKY ---
+    const sndAnvil = new Audio('https://cdn.pixabay.com/audio/2022/03/15/audio_7306e0659d.mp3'); // Kovadlina
+    const sndWood = new Audio('https://cdn.pixabay.com/audio/2022/03/10/audio_c359670605.mp3');  // Úder do dřeva
     
-    function playSound(snd) {
-      snd.currentTime = 0;
-      snd.play().catch(e => {});
+    async function playSound(snd) {
+      try {
+        // Inicializace audio kontextu pro prohlížeče
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') await audioCtx.resume();
+        
+        snd.currentTime = 0;
+        await snd.play();
+      } catch(e) { console.log("Audio play blocked"); }
     }
 
-    // --- OPTIMALIZOVANÝ MATRIX ---
+    // --- MATRIX ---
     const canvas = document.getElementById('matrixCanvas');
     const ctx = canvas.getContext('2d');
     let columns, drops;
@@ -188,22 +193,18 @@
         drops[i] += isSpeaking ? 2 : 1;
       }
     }
-    // Snížení frekvence překreslování pro úsporu CPU
     setInterval(drawMatrix, 60);
 
-    // --- POSÍLENÁ KONFIGURACE PROPOJENÍ ---
+    // --- PEER CONFIG ---
     const peerConfig = {
       'iceServers': [
         { 'urls': 'stun:stun.l.google.com:19302' },
         { 'urls': 'stun:stun1.l.google.com:19302' },
-        { 'urls': 'stun:stun2.l.google.com:19302' },
-        { 'urls': 'stun:stun3.l.google.com:19302' },
-        { 'urls': 'stun:stun4.l.google.com:19302' }
-      ],
-      'sdpSemantics': 'unified-plan'
+        { 'urls': 'stun:stun2.l.google.com:19302' }
+      ]
     };
 
-    // --- GENEROVÁNÍ KRUHU ---
+    // --- GEN KRUHU ---
     const container = document.getElementById('starsContainer');
     for (let i = 0; i < 12; i++) {
       const runeDiv = document.createElement('div');
@@ -217,17 +218,12 @@
       container.appendChild(runeDiv);
     }
 
-    // --- START S VYČIŠTĚNÍM ZVUKU ---
+    // --- LOGIKA STARTU ---
     document.getElementById('startBtn').addEventListener('click', async () => {
-      playSound(sndWood);
+      await playSound(sndWood);
       try {
-        // Vynucení filtrů pro čistý zvuk
         myStream = await navigator.mediaDevices.getUserMedia({ 
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
-          } 
+          audio: { echoCancellation: true, noiseSuppression: true } 
         });
 
         const myName = gods[Math.floor(Math.random()*gods.length)];
@@ -237,30 +233,28 @@
         myPeer = new Peer(myCustomId, { config: peerConfig });
 
         myPeer.on('open', (id) => {
-          document.getElementById('startBtn').style.opacity = "0.3";
+          document.getElementById('startBtn').style.opacity = "0.2";
           document.getElementById('startBtn').style.pointerEvents = "none";
           document.getElementById('ui-panel').style.display = "block";
           document.getElementById('myNameDisplay').textContent = id;
           mySeat = 0;
-          const s = document.getElementById('star-0');
-          s.classList.add('active');
-          s.setAttribute('data-name', 'TY (' + id + ')');
+          document.getElementById('star-0').classList.add('active');
+          document.getElementById('star-0').setAttribute('data-name', 'TY (' + id + ')');
           startVoiceDetection(myStream);
         });
 
         myPeer.on('call', call => {
+          playSound(sndAnvil);
           call.answer(myStream);
           handleCall(call);
         });
 
-      } catch(e) { alert("Sněm vyžaduje přístup k mikrofonu."); }
+      } catch(e) { alert("Mikrofon je nutný pro vstup."); }
     });
 
     function handleCall(call) {
       if (!activePeers.has(call.peer)) {
-        playSound(sndAnvil);
         document.getElementById('ui-panel').classList.add('ui-hidden');
-        
         const seatIndex = activePeers.size + 1;
         activePeers.set(call.peer, seatIndex);
         const s = document.getElementById('star-' + seatIndex);
@@ -269,20 +263,12 @@
           s.setAttribute('data-name', call.peer);
         }
       }
-
-      call.on('stream', remoteStream => {
-        const audio = new Audio();
-        audio.srcObject = remoteStream;
-        // Důležité: Zamezení zpětné vazby u lokálního přehrávání
-        audio.play();
-      });
-
+      call.on('stream', s => { const a = new Audio(); a.srcObject = s; a.play(); });
       call.on('close', () => {
-        const idx = activePeers.get(call.peer);
-        const s = document.getElementById('star-' + idx);
-        if(s) { s.classList.remove('active'); s.removeAttribute('data-name'); }
-        activePeers.delete(call.peer);
-        if(activePeers.size === 0) document.getElementById('ui-panel').classList.remove('ui-hidden');
+          const idx = activePeers.get(call.peer);
+          document.getElementById('star-' + idx).classList.remove('active');
+          activePeers.delete(call.peer);
+          if(activePeers.size === 0) document.getElementById('ui-panel').classList.remove('ui-hidden');
       });
     }
 
@@ -303,7 +289,7 @@
       function loop() {
         analyser.getByteFrequencyData(data);
         let avg = data.reduce((a,b)=>a+b)/data.length;
-        isSpeaking = avg > 20; // Zvýšený práh citlivosti pro eliminaci okolního šumu
+        isSpeaking = avg > 15;
         const s = document.getElementById('star-' + mySeat);
         if (s) {
           if (isSpeaking) s.classList.add('speaking'); 
@@ -313,12 +299,6 @@
       }
       loop();
     }
-
-    document.addEventListener('mousemove', (e) => {
-      const x = (window.innerWidth / 2 - e.pageX) / 45;
-      const y = (window.innerHeight / 2 - e.pageY) / 45;
-      container.style.transform = `translate(${x}px, ${y}px)`;
-    });
   </script>
 </body>
 </html>
