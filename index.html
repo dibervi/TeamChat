@@ -80,7 +80,6 @@
       transition: opacity 0.4s ease;
       white-space: nowrap;
     }
-    .star:hover::after { opacity: 0.8; }
 
     .star.active { color: var(--gold); animation: breathe 5s infinite; }
     
@@ -123,8 +122,6 @@
       width: 85%; max-width: 400px;
     }
 
-    .ui-hidden { opacity: 0; pointer-events: none; transform: translateY(20px); transition: 0.5s; }
-
     input { background: #111; border: 1px solid #444; color: white; padding: 12px; border-radius: 10px; width: 80%;
     outline: none; margin-bottom: 15px; text-align: center; font-family: monospace; }
     button#connectBtn { background: var(--gold); border: none; padding: 12px 25px;
@@ -152,201 +149,134 @@
 
   <script>
     const runes = ["ᚫ", "ᚱ", "ᚷ", "ᛞ", "ᛗ", "ᛟ", "ᚹ", "ᚻ", "ᚾ", "ᛁ", "ᛃ", "ᛒ"];
-    let mySeat = 0;
-    let isAnyoneSpeaking = false;
-    let myPeer, myStream;
+    let myPeer, myStream, audioContext;
     let activePeers = new Map();
-    let audioContext;
-    
-    const sndAnvil = new Audio('https://cdn.pixabay.com/audio/2022/03/15/audio_7306e0659d.mp3');
-    const sndWood = new Audio('https://cdn.pixabay.com/audio/2022/03/10/audio_c359670605.mp3');
+    let isAnyoneSpeaking = false;
 
-    async function initAudio() {
-      if (!audioContext) {
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      }
-      if (audioContext.state === 'suspended') {
-        await audioContext.resume();
-      }
+    // NOVÉ ODKAZY NA ZVUKY (Stabilnější zdroje)
+    const sndWood = new Audio('https://www.soundjay.com/buttons/sounds/button-20.mp3');
+    const sndAnvil = new Audio('https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3');
+
+    async function resumeAudio() {
+      if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioContext.state === 'suspended') await audioContext.resume();
     }
 
-    async function playSound(snd) {
-      await initAudio();
-      try {
-        snd.currentTime = 0;
-        await snd.play();
-      } catch(e) { console.log("Sound play failed", e); }
+    function playSnd(audio) {
+      resumeAudio().then(() => {
+        audio.currentTime = 0;
+        audio.play().catch(e => console.log("Audio block:", e));
+      });
     }
 
-    // MATRIX
+    // MATRIX 
     const canvas = document.getElementById('matrixCanvas');
     const ctx = canvas.getContext('2d');
     let columns, drops;
-
     function initMatrix() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      columns = Math.floor(canvas.width / 25);
-      drops = Array(columns).fill(1);
+      canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+      columns = Math.floor(canvas.width / 25); drops = Array(columns).fill(1);
     }
     initMatrix();
-    window.addEventListener('resize', initMatrix);
+    window.onresize = initMatrix;
 
     function drawMatrix() {
-      ctx.fillStyle = "rgba(10, 10, 10, 0.2)";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = isAnyoneSpeaking ? "#bd9b5d" : "#111"; 
-      ctx.font = "14px monospace";
+      ctx.fillStyle = "rgba(10, 10, 10, 0.2)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = isAnyoneSpeaking ? "#bd9b5d" : "#111";
       for (let i = 0; i < drops.length; i++) {
-        const text = runes[Math.floor(Math.random() * runes.length)];
-        ctx.fillText(text, i * 25, drops[i] * 25);
-        if (drops[i] * 25 > canvas.height && Math.random() > 0.98) drops[i] = 0;
+        ctx.fillText(runes[Math.floor(Math.random()*runes.length)], i*25, drops[i]*25);
+        if (drops[i]*25 > canvas.height && Math.random() > 0.975) drops[i] = 0;
         drops[i] += isAnyoneSpeaking ? 2 : 1;
       }
     }
     setInterval(drawMatrix, 60);
 
-    // RUNE LAYOUT
-    const container = document.getElementById('starsContainer');
+    // LAYOUT RUN
     for (let i = 0; i < 12; i++) {
-      const runeDiv = document.createElement('div');
-      runeDiv.className = 'star';
-      runeDiv.id = 'star-' + i;
-      runeDiv.textContent = runes[i];
-      const angle = (i * 360) / 12 - 90;
-      const rad = angle * Math.PI / 180;
-      runeDiv.style.left = `calc(50% + ${Math.cos(rad) * 35}vmin - 10px)`;
-      runeDiv.style.top = `calc(50% + ${Math.sin(rad) * 35}vmin - 10px)`;
-      container.appendChild(runeDiv);
+      const r = document.createElement('div');
+      r.className = 'star'; r.id = 'star-' + i; r.textContent = runes[i];
+      const angle = (i * 360 / 12 - 90) * Math.PI / 180;
+      r.style.left = `calc(50% + ${Math.cos(angle)*35}vmin - 10px)`;
+      r.style.top = `calc(50% + ${Math.sin(angle)*35}vmin - 10px)`;
+      document.getElementById('starsContainer').appendChild(r);
     }
 
-    // START
+    // START TLAČÍTKO
     document.getElementById('startBtn').addEventListener('click', async () => {
-      await initAudio();
-      await playSound(sndWood);
+      playSnd(sndWood);
       try {
         myStream = await navigator.mediaDevices.getUserMedia({ 
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } 
+          audio: { echoCancellation: true, noiseSuppression: true } 
         });
-
+        
         const myPin = Math.floor(1000 + Math.random() * 9000).toString();
         myPeer = new Peer(myPin);
-
-        myPeer.on('open', (id) => {
-          document.getElementById('startBtn').style.opacity = "0.1";
-          document.getElementById('startBtn').style.pointerEvents = "none";
+        
+        myPeer.on('open', id => {
+          document.getElementById('startBtn').style.display = "none";
           document.getElementById('ui-panel').style.display = "block";
           document.getElementById('myNameDisplay').textContent = id;
+          document.getElementById('star-0').classList.add('active');
+          document.getElementById('star-0').setAttribute('data-name', 'TY ('+id+')');
+          attachVoice(myStream, 0);
           
-          const s = document.getElementById('star-0');
-          s.classList.add('active');
-          s.setAttribute('data-name', 'TY (' + id + ')');
-          
-          attachVoiceDetection(myStream, 0);
+          // Heartbeat pro udržení spojení na mobilu
+          setInterval(() => { if(myPeer && !myPeer.disconnected) myPeer.socket.send({type:'heartbeat'}); }, 5000);
         });
 
         myPeer.on('call', call => {
-          playSound(sndAnvil);
+          playSnd(sndAnvil);
           call.answer(myStream);
           handleCall(call);
         });
-
-      } catch(e) { alert("Chyba: Mikrofon nebyl nalezen nebo povolen."); }
+      } catch(e) { alert("Povolte mikrofon v nastavení prohlížeče!"); }
     });
 
     function handleCall(call) {
-      let seatIdx;
       if (!activePeers.has(call.peer)) {
-        seatIdx = activePeers.size + 1;
-        activePeers.set(call.peer, seatIdx);
-        
-        const s = document.getElementById('star-' + seatIdx);
-        if(s) {
-          s.classList.add('active');
-          s.setAttribute('data-name', 'HOST (' + call.peer + ')');
-          document.getElementById('ui-panel').classList.add('ui-hidden');
-        }
-      } else {
-        seatIdx = activePeers.get(call.peer);
-      }
-
-      call.on('stream', remoteStream => {
-        let audio = document.getElementById('audio-' + call.peer);
-        if (!audio) {
-          audio = document.createElement('audio');
-          audio.id = 'audio-' + call.peer;
-          audio.autoplay = true;
-          audio.setAttribute('playsinline', 'true');
-          document.body.appendChild(audio);
-        }
-        audio.srcObject = remoteStream;
-        audio.play().catch(e => console.log("Auto-play blocked, waiting for interaction"));
-
-        attachVoiceDetection(remoteStream, seatIdx);
-      });
-
-      call.on('close', () => {
-        const idx = activePeers.get(call.peer);
+        const idx = activePeers.size + 1;
+        activePeers.set(call.peer, idx);
         const s = document.getElementById('star-' + idx);
-        if(s) { s.classList.remove('active'); s.classList.remove('speaking'); }
-        const audio = document.getElementById('audio-' + call.peer);
-        if(audio) audio.remove();
-        activePeers.delete(call.peer);
+        if(s) { 
+            s.classList.add('active'); 
+            s.setAttribute('data-name', 'HOST ('+call.peer+')'); 
+            document.getElementById('ui-panel').style.display = "none";
+        }
+      }
+      call.on('stream', stream => {
+        let a = document.getElementById('audio-' + call.peer) || document.createElement('audio');
+        a.id = 'audio-' + call.peer; a.autoplay = true; a.srcObject = stream;
+        a.setAttribute('playsinline', 'true');
+        document.body.appendChild(a);
+        attachVoice(stream, activePeers.get(call.peer));
       });
     }
 
-    document.getElementById('connectBtn').addEventListener('click', async () => {
-      await initAudio();
-      const rId = document.getElementById('remoteIdInput').value;
-      if(rId && rId !== myPeer.id) {
-        playSound(sndWood);
-        const call = myPeer.call(rId, myStream);
+    document.getElementById('connectBtn').onclick = () => {
+      playSnd(sndWood);
+      const val = document.getElementById('remoteIdInput').value;
+      if(val) {
+        const call = myPeer.call(val, myStream);
         handleCall(call);
       }
-    });
+    };
 
-    function attachVoiceDetection(stream, seatIndex) {
-      if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      
+    function attachVoice(stream, seat) {
+      if(!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
       const analyser = audioContext.createAnalyser();
-      const source = audioContext.createMediaStreamSource(stream);
-      source.connect(analyser);
-      
-      analyser.fftSize = 64;
-      const bufferLength = analyser.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
-      
-      const runeElement = document.getElementById('star-' + seatIndex);
+      audioContext.createMediaStreamSource(stream).connect(analyser);
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      const el = document.getElementById('star-' + seat);
 
-      function checkVoice() {
-        analyser.getByteFrequencyData(dataArray);
-        let sum = 0;
-        for (let i = 0; i < bufferLength; i++) sum += dataArray[i];
-        let average = sum / bufferLength;
-
-        if (average > 20) {
-          runeElement.classList.add('speaking');
-          isAnyoneSpeaking = true;
-        } else {
-          runeElement.classList.remove('speaking');
-          // Kontrola, jestli mluví aspoň někdo jiný pro matrix
-          updateGlobalSpeakingStatus();
-        }
-        requestAnimationFrame(checkVoice);
+      function check() {
+        analyser.getByteFrequencyData(data);
+        const avg = data.reduce((a,b)=>a+b)/data.length;
+        if(avg > 15) el.classList.add('speaking'); else el.classList.remove('speaking');
+        isAnyoneSpeaking = !!document.querySelector('.star.speaking');
+        requestAnimationFrame(check);
       }
-      checkVoice();
+      check();
     }
-
-    function updateGlobalSpeakingStatus() {
-      const allSpeaking = document.querySelectorAll('.star.speaking');
-      isAnyoneSpeaking = allSpeaking.length > 0;
-    }
-
-    document.addEventListener('mousemove', (e) => {
-      const x = (window.innerWidth / 2 - e.pageX) / 45;
-      const y = (window.innerHeight / 2 - e.pageY) / 45;
-      container.style.transform = `translate(${x}px, ${y}px)`;
-    });
   </script>
 </body>
 </html>
