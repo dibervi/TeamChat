@@ -153,20 +153,10 @@
     let activePeers = new Map();
     let isAnyoneSpeaking = false;
 
-    // NOVÉ ODKAZY NA ZVUKY (Stabilnější zdroje)
-    const sndWood = new Audio('https://www.soundjay.com/buttons/sounds/button-20.mp3');
-    const sndAnvil = new Audio('https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3');
-
-    async function resumeAudio() {
+    // Inicializace Audio Contextu (nutné pro detekci hlasu, ne pro přehrávání zvuků)
+    async function initAudio() {
       if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
       if (audioContext.state === 'suspended') await audioContext.resume();
-    }
-
-    function playSnd(audio) {
-      resumeAudio().then(() => {
-        audio.currentTime = 0;
-        audio.play().catch(e => console.log("Audio block:", e));
-      });
     }
 
     // MATRIX 
@@ -203,7 +193,7 @@
 
     // START TLAČÍTKO
     document.getElementById('startBtn').addEventListener('click', async () => {
-      playSnd(sndWood);
+      await initAudio();
       try {
         myStream = await navigator.mediaDevices.getUserMedia({ 
           audio: { echoCancellation: true, noiseSuppression: true } 
@@ -220,12 +210,10 @@
           document.getElementById('star-0').setAttribute('data-name', 'TY ('+id+')');
           attachVoice(myStream, 0);
           
-          // Heartbeat pro udržení spojení na mobilu
           setInterval(() => { if(myPeer && !myPeer.disconnected) myPeer.socket.send({type:'heartbeat'}); }, 5000);
         });
 
         myPeer.on('call', call => {
-          playSnd(sndAnvil);
           call.answer(myStream);
           handleCall(call);
         });
@@ -253,7 +241,6 @@
     }
 
     document.getElementById('connectBtn').onclick = () => {
-      playSnd(sndWood);
       const val = document.getElementById('remoteIdInput').value;
       if(val) {
         const call = myPeer.call(val, myStream);
@@ -262,7 +249,7 @@
     };
 
     function attachVoice(stream, seat) {
-      if(!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      initAudio();
       const analyser = audioContext.createAnalyser();
       audioContext.createMediaStreamSource(stream).connect(analyser);
       const data = new Uint8Array(analyser.frequencyBinCount);
