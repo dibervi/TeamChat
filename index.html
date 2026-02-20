@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Nifl-Link</title>
+  <title>Nifl-Link | Asatru Sněm</title>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <style>
     :root { --gold: #bd9b5d; --bg: #0a0a0a; --rune-stone: #222; --fire: #ff8800; }
@@ -19,7 +19,7 @@
     .stars-container { position: relative; width: 90vmin; height: 90vmin; display: flex; align-items: center; justify-content: center; z-index: 4; }
 
     .star { position: absolute; font-size: clamp(18px, 5vmin, 38px); color: var(--rune-stone); transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); user-select: none; }
-    .star::after { content: attr(data-name); position: absolute; top: 120%; left: 50%; transform: translateX(-50%); font-size: 10px; letter-spacing: 1px; color: var(--gold); opacity: 0; transition: opacity 0.4s ease; white-space: nowrap; }
+    .star::after { content: attr(data-name); position: absolute; top: 120%; left: 50%; transform: translateX(-50%); font-size: 11px; letter-spacing: 1px; color: var(--gold); opacity: 0; transition: opacity 0.4s ease; white-space: nowrap; font-weight: bold; text-transform: uppercase; }
     .star.active { color: var(--gold); animation: breathe 5s infinite; }
     .star.active::after { opacity: 1; }
     
@@ -74,7 +74,7 @@
     <button class="center-button" id="startBtn">ᚫ</button>
 
     <div id="ui-panel" class="ui-hidden">
-      <div style="font-size: 0.6em; margin-bottom: 5px; letter-spacing: 2px; color: #666;">VÁŠ RUNOVÝ KLÍČ</div>
+      <div style="font-size: 0.6em; margin-bottom: 5px; letter-spacing: 2px; color: #666;">KLÍČ GOÐIHO</div>
       <div id="myNameDisplay" style="color:var(--gold); font-weight:bold; font-size: 1.8em; margin-bottom: 15px; letter-spacing: 5px;"></div>
       <input type="tel" id="remoteIdInput" placeholder="PIN" maxlength="4">
       <button id="connectBtn">Vstoupit do Sněmu</button>
@@ -83,12 +83,18 @@
 
   <script>
     const runes = ["ᚫ", "ᚱ", "ᚷ", "ᛞ", "ᛗ", "ᛟ", "ᚹ", "ᚻ", "ᚾ", "ᛁ", "ᛃ", "ᛒ"];
+    const runeNames = [
+      "Posel Ansuz", "Poutník Raido", "Dárce Gebo", "Světlonoš Dagaz", 
+      "Strážce Mannaz", "Ochránce Othala", "Šířitel Wunjo", "Vládce Hagalaz", 
+      "Zkoušený Nauthiz", "Strážce Isa", "Sklizeň Jera", "Ochránce Berkano"
+    ];
+
     let myPeer, myStream, audioContext;
     let activePeers = new Map();
     let isAnyoneSpeaking = false;
-    let isHost = true; // Výchozí stav je hostitel
+    let isHost = true;
 
-    // --- MATRIX ---
+    // --- MATRIX ANIMACE ---
     const canvas = document.getElementById('matrixCanvas');
     const ctx = canvas.getContext('2d');
     let columns, drops;
@@ -108,7 +114,7 @@
     }
     setInterval(drawMatrix, 60);
 
-    // --- LAYOUT ---
+    // --- ROZESETÍ RUN DO KRUHU ---
     for (let i = 0; i < 12; i++) {
       const r = document.createElement('div');
       r.className = 'star'; r.id = 'star-' + i; r.textContent = runes[i];
@@ -118,7 +124,7 @@
       document.getElementById('starsContainer').appendChild(r);
     }
 
-    // --- LOGIKA ---
+    // --- PEER JS LOGIKA ---
     document.getElementById('startBtn').onclick = async () => {
       try {
         myStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -131,7 +137,7 @@
           document.getElementById('startBtn').style.display = "none";
           document.getElementById('ui-panel').classList.remove('ui-hidden');
           document.getElementById('myNameDisplay').textContent = id;
-          updateStar(0, 'VŮDCE ('+id+')', true);
+          updateStar(0, 'Goði', true); // Hostitel je vždy první runa
           attachVoice(myStream, 0);
         });
 
@@ -141,7 +147,7 @@
         });
 
         myPeer.on('disconnected', () => myPeer.reconnect());
-      } catch(e) { alert("Vstup odepřen: Chybí přístup k mikrofonu."); }
+      } catch(e) { alert("Mikrofon je pro sněm nezbytný."); }
     };
 
     function handleCall(call) {
@@ -149,9 +155,10 @@
         if (!activePeers.has(call.peer)) {
           const seat = activePeers.size + 1;
           activePeers.set(call.peer, { seat });
-          updateStar(seat, 'HOST ('+call.peer+')', true);
           
-          // Pokud jsme se připojili k někomu jinému, nejsme hostitel
+          // Nastavení rituálního jména podle runy
+          updateStar(seat, runeNames[seat], true);
+          
           if (!isHost) {
             document.getElementById('ui-panel').classList.add('ui-hidden');
           }
@@ -169,7 +176,7 @@
     document.getElementById('connectBtn').onclick = () => {
       const val = document.getElementById('remoteIdInput').value;
       if(val && val !== myPeer.id) {
-        isHost = false; // Kliknutím na "Vstoupit" se stávám klientem
+        isHost = false; 
         const call = myPeer.call(val, myStream);
         handleCall(call);
       }
@@ -178,8 +185,13 @@
     function updateStar(id, name, active) {
       const el = document.getElementById('star-' + id);
       if (el) {
-        if (active) { el.classList.add('active'); el.setAttribute('data-name', name); }
-        else { el.classList.remove('active', 'speaking'); el.removeAttribute('data-name'); }
+        if (active) { 
+          el.classList.add('active'); 
+          el.setAttribute('data-name', name); 
+        } else { 
+          el.classList.remove('active', 'speaking'); 
+          el.removeAttribute('data-name'); 
+        }
       }
     }
 
@@ -190,8 +202,6 @@
         const aud = document.getElementById('audio-' + peerId);
         if (aud) aud.remove();
         activePeers.delete(peerId);
-        // Pokud hostitel zůstane sám, panel se mu neztratí. 
-        // Pokud klient ztratí spojení, panel se mu opět ukáže.
         if (activePeers.size === 0) {
             isHost = true;
             document.getElementById('ui-panel').classList.remove('ui-hidden');
@@ -210,6 +220,7 @@
         if (!el || !el.classList.contains('active')) return;
         analyser.getByteFrequencyData(data);
         const avg = data.reduce((a,b)=>a+b)/data.length;
+        // Citlivost: 12 je ideální pro běžný mikrofon
         if(avg > 12) el.classList.add('speaking'); else el.classList.remove('speaking');
         isAnyoneSpeaking = !!document.querySelector('.star.speaking');
         requestAnimationFrame(check);
