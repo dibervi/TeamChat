@@ -6,54 +6,61 @@
   <title>Nifl-Link | Asatru Council</title>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <style>
-    :root { --gold: #bd9b5d; --bg: #0a0a0a; --rune-stone: #222; --fire: #ff8800; }
+    :root { --gold: #bd9b5d; --bg: #0a0a0a; --rune-stone: #222; --fire: #ffaa00; }
     body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: var(--bg); color: #e0e0e0; font-family: "Segoe UI", sans-serif; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; }
     
-    #matrixCanvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; opacity: 0.15; pointer-events: none; }
+    /* MATRIX - VÝRAZNĚJŠÍ */
+    #matrixCanvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; opacity: 0.35; pointer-events: none; }
     .grain { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: url('https://grainy-gradients.vercel.app/noise.svg'); opacity: 0.04; pointer-events: none; z-index: 10; }
-    body::after { content: ""; position: absolute; inset: 0; background: radial-gradient(circle, transparent 20%, rgba(0,0,0,0.9) 100%); pointer-events: none; z-index: 5; }
+    body::after { content: ""; position: absolute; inset: 0; background: radial-gradient(circle, transparent 10%, rgba(0,0,0,1) 100%); pointer-events: none; z-index: 5; }
     
-    h1 { position: absolute; top: 5vh; font-size: clamp(16px, 4vw, 24px); letter-spacing: 0.5em; color: #333; z-index: 6; margin: 0; text-transform: uppercase; transition: 0.5s; }
-    h1 span { color: var(--gold); }
+    h1 { position: absolute; top: 5vh; font-size: clamp(16px, 4vw, 24px); letter-spacing: 0.5em; color: #222; z-index: 6; margin: 0; text-transform: uppercase; }
+    h1 span { color: var(--gold); text-shadow: 0 0 10px rgba(189,155,93,0.3); }
 
     .stars-container { position: relative; width: 90vmin; height: 90vmin; display: flex; align-items: center; justify-content: center; z-index: 4; }
 
-    .star { position: absolute; font-size: clamp(18px, 5vmin, 38px); color: var(--rune-stone); transition: all 0.4s ease; user-select: none; }
-    .star::after { content: attr(data-name); position: absolute; top: 120%; left: 50%; transform: translateX(-50%); font-size: 10px; letter-spacing: 1px; color: var(--gold); opacity: 0; transition: opacity 0.4s ease; white-space: nowrap; font-weight: bold; text-transform: uppercase; }
-    .star.active { color: var(--gold); animation: breathe 5s infinite; cursor: pointer; }
+    .star { position: absolute; font-size: clamp(20px, 6vmin, 42px); color: var(--rune-stone); transition: all 0.3s ease; user-select: none; z-index: 15; }
+    .star::after { content: attr(data-name); position: absolute; top: 120%; left: 50%; transform: translateX(-50%); font-size: 10px; letter-spacing: 2px; color: var(--gold); opacity: 0; transition: opacity 0.4s ease; white-space: nowrap; font-weight: bold; text-transform: uppercase; text-shadow: 0 0 5px black; }
+    
+    /* AKTIVNÍ RUNA (Člověk v místnosti) */
+    .star.active { color: var(--gold); opacity: 0.6; cursor: pointer; }
     .star.active::after { opacity: 1; }
     
-    @keyframes breathe { 0%, 100% { opacity: 0.4; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.05); } }
-    .star.speaking { animation: none !important; color: var(--fire) !important; text-shadow: 0 0 15px var(--fire); transform: scale(1.3) !important; opacity: 1 !important; z-index: 100; }
+    /* MLUVÍCÍ RUNA (Efekt ohně) */
+    .star.speaking { 
+      color: var(--fire) !important; 
+      text-shadow: 0 0 25px var(--fire), 0 0 50px var(--fire); 
+      transform: scale(1.4) !important; 
+      opacity: 1 !important; 
+      z-index: 100; 
+    }
 
-    /* UI PANEL */
     #ui-panel {
       position: absolute; width: 50vmin; height: 50vmin; max-width: 300px; max-height: 300px;
-      background: rgba(10, 10, 10, 0.95); backdrop-filter: blur(15px);
-      border: 1px solid rgba(189,155,93,0.2); border-radius: 50%;
+      background: rgba(5, 5, 5, 0.95); backdrop-filter: blur(20px);
+      border: 1px solid var(--gold); border-radius: 50%;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      z-index: 20; transition: all 0.5s ease; padding: 20px; box-sizing: border-box; text-align: center;
+      z-index: 200; transition: 0.5s; padding: 20px; box-sizing: border-box; text-align: center;
+      box-shadow: 0 0 100px rgba(0,0,0,1);
     }
 
-    .hidden { display: none !important; opacity: 0; pointer-events: none; }
+    .hidden { display: none !important; }
 
-    input { background: transparent; border: none; border-bottom: 1px solid var(--gold); color: white; padding: 10px; width: 80%; outline: none; margin: 15px 0; text-align: center; font-family: monospace; font-size: 16px; letter-spacing: 2px; }
-    button.menu-btn { background: var(--gold); border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer; font-weight: bold; color: #111; font-size: 0.75em; text-transform: uppercase; margin: 5px 0; width: 90%; transition: 0.3s; }
+    input { background: transparent; border: none; border-bottom: 2px solid var(--gold); color: white; padding: 10px; width: 80%; outline: none; margin: 15px 0; text-align: center; font-family: monospace; font-size: 18px; letter-spacing: 3px; }
+    button.menu-btn { background: var(--gold); border: none; padding: 12px; border-radius: 25px; cursor: pointer; font-weight: bold; color: #000; font-size: 0.8em; text-transform: uppercase; margin: 5px 0; width: 90%; }
 
-    /* CENTER RUNE BUTTON */
     #centerBtn {
       width: 25vmin; height: 25vmin; max-width: 120px; max-height: 120px;
-      font-size: clamp(30px, 8vmin, 50px); background: linear-gradient(145deg, #bd9b5d, #8a6d3b);
-      color: #1a1a1a; border: none; border-radius: 50%; cursor: pointer;
-      display: flex; align-items: center; justify-content: center; z-index: 30;
-      box-shadow: 0 0 30px rgba(189,155,93,0.3); transition: 0.5s;
+      font-size: clamp(30px, 8vmin, 50px); background: radial-gradient(circle, #bd9b5d, #8a6d3b);
+      color: #111; border: none; border-radius: 50%; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; z-index: 150;
+      box-shadow: 0 0 40px rgba(189,155,93,0.4); transition: 0.5s;
     }
-    #centerBtn.locked { background: #444; color: #111; box-shadow: none; opacity: 0.6; }
+    #centerBtn.locked { background: #222; color: #444; border: 1px solid #333; box-shadow: none; }
 
-    /* MODAL */
-    #kickModal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: none; align-items: center; justify-content: center; z-index: 100; }
+    #kickModal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: none; align-items: center; justify-content: center; z-index: 1000; }
     #kickModal.show { display: flex; }
-    .modal-content { background: #111; border: 2px solid var(--gold); border-radius: 20px; padding: 30px; width: 80%; max-width: 320px; text-align: center; }
+    .modal-content { background: #000; border: 2px solid var(--gold); border-radius: 20px; padding: 30px; width: 80%; max-width: 320px; text-align: center; }
   </style>
 </head>
 <body>
@@ -63,23 +70,20 @@
   
   <div class="stars-container" id="starsContainer">
     <button id="centerBtn">ᚫ</button>
-
     <div id="ui-panel" class="hidden">
-      <div id="setup-view">
-        <button class="menu-btn" id="btnModeCreate">VYTVOŘIT SNĚM</button>
-        <input type="text" id="roomInput" placeholder="NÁZEV SNĚMU" maxlength="15">
-        <button class="menu-btn" id="btnModeJoin">PŘIPOJIT SE</button>
-      </div>
+      <button class="menu-btn" id="btnModeCreate">VYTVOŘIT SNĚM</button>
+      <input type="text" id="roomInput" placeholder="NÁZEV" maxlength="15">
+      <button class="menu-btn" id="btnModeJoin">PŘIPOJIT SE</button>
     </div>
   </div>
 
   <div id="kickModal">
     <div class="modal-content">
       <div style="font-size:40px; color:var(--gold)">ᛉ</div>
-      <h2 id="kickName" style="color:var(--gold)"></h2>
-      <div id="voteStatus" style="font-size:0.8em; margin-bottom:15px; color:#666"></div>
+      <h2 id="kickName" style="color:var(--gold); letter-spacing:2px;"></h2>
+      <div id="voteStatus" style="font-size:0.8em; margin-bottom:20px; color:#555"></div>
       <button class="menu-btn" id="voteStartBtn">VYZVAT K HLASOVÁNÍ</button>
-      <button class="menu-btn" id="kickCancel" style="background:#222; color:#eee">ZRUŠIT</button>
+      <button class="menu-btn" id="kickCancel" style="background:#222; color:#777">ZRUŠIT</button>
     </div>
   </div>
 
@@ -95,129 +99,119 @@
   let currentKickSeat = null;
   let votesCount = 0;
 
-  // MATRIX
+  // MATRIX ANIMACE - VYLEPŠENÁ
   const canvas = document.getElementById('matrixCanvas');
   const ctx = canvas.getContext('2d');
   let columns, drops;
-  function initMatrix() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; columns = Math.floor(canvas.width/25); drops = Array(columns).fill(1); }
+  function initMatrix() { 
+    canvas.width = window.innerWidth; 
+    canvas.height = window.innerHeight; 
+    columns = Math.floor(canvas.width/20); 
+    drops = Array(columns).fill(1); 
+  }
   initMatrix(); window.onresize = initMatrix;
+
   function drawMatrix() {
-    ctx.fillStyle = "rgba(10, 10, 10, 0.2)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = document.querySelector('.star.speaking') ? "#bd9b5d" : "#1a1a1a";
+    ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Barva padajících run reaguje na mluvení
+    const isSpeaking = !!document.querySelector('.star.speaking');
+    ctx.fillStyle = isSpeaking ? "#bd9b5d" : "#111"; 
+    ctx.font = "15px monospace";
+
     for(let i=0; i<drops.length; i++) {
-      ctx.fillText(runes[Math.floor(Math.random()*runes.length)], i*25, drops[i]*25);
-      if(drops[i]*25 > canvas.height && Math.random() > 0.975) drops[i] = 0;
+      const text = runes[Math.floor(Math.random()*runes.length)];
+      ctx.fillText(text, i*20, drops[i]*20);
+      if(drops[i]*20 > canvas.height && Math.random() > 0.975) drops[i] = 0;
       drops[i]++;
     }
   }
-  setInterval(drawMatrix, 60);
+  setInterval(drawMatrix, 50);
 
-  // STAR RENDER
+  // GENEROVÁNÍ KRUHU
   for (let i = 0; i < 12; i++) {
     const r = document.createElement('div');
     r.className = 'star'; r.id = 'star-' + i; r.textContent = runes[i];
     const angle = (i * 360 / 12 - 90) * Math.PI / 180;
-    r.style.left = `calc(50% + ${Math.cos(angle)*38}vmin - 10px)`;
-    r.style.top = `calc(50% + ${Math.sin(angle)*38}vmin - 10px)`;
+    r.style.left = `calc(50% + ${Math.cos(angle)*38}vmin - 15px)`;
+    r.style.top = `calc(50% + ${Math.sin(angle)*38}vmin - 15px)`;
     document.getElementById('starsContainer').appendChild(r);
 
     r.onclick = () => {
       if (!isHost || i === 0 || !r.classList.contains('active')) return;
       currentKickSeat = i;
       document.getElementById('kickName').textContent = runeNames[i];
-      document.getElementById('voteStatus').textContent = "Sněmovní právo vyhostit člena.";
       document.getElementById('kickModal').classList.add('show');
     };
   }
 
   const centerBtn = document.getElementById('centerBtn');
   const uiPanel = document.getElementById('ui-panel');
-  const roomInput = document.getElementById('roomInput');
 
-  // KROK 1 & 2: První kliknutí
+  // LOGIKA STARTU
   centerBtn.onclick = async () => {
-    // Pokud už jsme v místnosti, funguje jako Lock/Unlock
     if (myPeer) {
       if (!isHost) return;
       isLocked = !isLocked;
       centerBtn.classList.toggle('locked', isLocked);
       return;
     }
-
-    // Jinak začínáme setup:
-    centerBtn.classList.add('hidden'); // Runa zmizí
-    
+    centerBtn.classList.add('hidden'); 
     try {
-      // KROK 3: Povolení mikrofonu
       myStream = await navigator.mediaDevices.getUserMedia({audio: true});
-      uiPanel.classList.remove('hidden'); // Objeví se UI panel
+      uiPanel.classList.remove('hidden'); 
     } catch(e) {
-      alert("Pro vstup na sněm je nutný mikrofon.");
+      alert("Mikrofon je nutný pro vstup.");
       centerBtn.classList.remove('hidden');
     }
   };
 
-  // KROK 4a: VYTVOŘIT
   document.getElementById('btnModeCreate').onclick = () => {
-    const name = roomInput.value.trim().toLowerCase();
-    if (name.length < 3) return alert("Příliš krátký název.");
-    
+    const name = document.getElementById('roomInput').value.trim().toLowerCase();
+    if (name.length < 3) return alert("Název je příliš krátký.");
     myPeer = new Peer(name);
     isHost = true;
-    
     myPeer.on('open', () => {
-      completeSetup();
+      uiPanel.classList.add('hidden');
+      centerBtn.textContent = "ᛟ"; centerBtn.classList.remove('hidden');
       updateStar(0, "Goði");
       attachVoice(myStream, 0);
     });
+    setupPeerEvents();
+  };
 
+  document.getElementById('btnModeJoin').onclick = () => {
+    const name = document.getElementById('roomInput').value.trim().toLowerCase();
+    if (!name) return;
+    myPeer = new Peer();
+    myPeer.on('open', () => {
+      uiPanel.classList.add('hidden');
+      centerBtn.textContent = "ᛟ"; centerBtn.classList.remove('hidden');
+      centerBtn.style.pointerEvents = "none";
+      const conn = myPeer.connect(name);
+      dataConns.set(name, conn);
+      conn.on('open', () => conn.send({type: 'join'}));
+      conn.on('data', d => handleSignaling(d, name));
+      myPeer.call(name, myStream);
+      updateStar(0, "Goði");
+      attachVoice(myStream, 0);
+    });
+    setupPeerEvents();
+  };
+
+  function setupPeerEvents() {
     myPeer.on('connection', conn => {
-      if(isLocked) { conn.send({type:'locked'}); return; }
+      if(isLocked) { conn.on('open', () => conn.send({type:'locked'})); return; }
       dataConns.set(conn.peer, conn);
       conn.on('data', d => handleSignaling(d, conn.peer));
     });
-
     myPeer.on('call', call => {
       if(isLocked) return;
       call.answer(myStream);
       handleCall(call);
     });
-
-    myPeer.on('error', err => {
-      if(err.type === 'unavailable-id') alert("Tento sněm již existuje.");
-    });
-  };
-
-  // KROK 4b: PŘIPOJIT SE
-  document.getElementById('btnModeJoin').onclick = () => {
-    const name = roomInput.value.trim().toLowerCase();
-    if (!name) return;
-
-    myPeer = new Peer();
-    myPeer.on('open', () => {
-      completeSetup();
-      const conn = myPeer.connect(name);
-      dataConns.set(name, conn);
-      conn.on('open', () => conn.send({type: 'join'}));
-      conn.on('data', d => handleSignaling(d, name));
-      
-      const call = myPeer.call(name, myStream);
-      handleCall(call);
-      
-      // Hostitel je na runě 0
-      updateStar(0, "Goði");
-      attachVoice(myStream, 0);
-    });
-  };
-
-  function completeSetup() {
-    uiPanel.classList.add('hidden'); // UI zmizí
-    centerBtn.textContent = "ᛟ"; // Změní se na runu Othala
-    centerBtn.classList.remove('hidden'); // Znovu se objeví uprostřed
-    if (!isHost) centerBtn.style.pointerEvents = "none"; // Hosté na ni neklikají
   }
-
-  // --- KOMUNIKACE A AUDIO ---
 
   function handleSignaling(data, senderId) {
     if (data.type === 'join' && isHost) {
@@ -233,8 +227,9 @@
     if (data.type === 'seatUpdate') {
       data.seats.forEach(s => updateStar(s.index, s.name, true));
     }
+    if (data.type === 'locked') { alert("Sněm je uzavřen."); location.reload(); }
     if (data.type === 'voteInvite') {
-      if (confirm("Souhlasíš s vyhoštěním člena " + runeNames[data.seat] + "?")) {
+      if (confirm("Souhlasíš s vyhoštěním " + runeNames[data.seat] + "?")) {
         dataConns.get(senderId).send({type: 'voteCast', seat: data.seat});
       }
     }
@@ -242,10 +237,7 @@
       votesCount++;
       const needed = Math.ceil((activePeers.size + 1) / 2);
       document.getElementById('voteStatus').textContent = `Hlasy: ${votesCount} / ${needed}`;
-      if (votesCount >= needed) {
-        kickPeer(data.seat);
-        document.getElementById('kickModal').classList.remove('show');
-      }
+      if (votesCount >= needed) { kickPeer(data.seat); document.getElementById('kickModal').classList.remove('show'); }
     }
     if (data.type === 'kicked') { alert("Byl jsi vyhoštěn."); location.reload(); }
   }
@@ -268,17 +260,25 @@
     });
   }
 
+  // AUDIO ANALÝZA - ZCITLIVĚNÁ
   async function attachVoice(stream, seat) {
-    if (!audioContext) audioContext = new AudioContext();
+    if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
     const analyser = audioContext.createAnalyser();
     const source = audioContext.createMediaStreamSource(stream);
     source.connect(analyser);
+    analyser.fftSize = 256;
     const data = new Uint8Array(analyser.frequencyBinCount);
     const el = document.getElementById('star-' + seat);
+    
     function check() {
       if (!el || !el.classList.contains('active')) return;
       analyser.getByteFrequencyData(data);
-      if (data.reduce((a,b)=>a+b,0)/data.length > 15) el.classList.add('speaking'); 
+      let sum = 0;
+      for(let i=0; i<data.length; i++) sum += data[i];
+      let avg = sum / data.length;
+      
+      // Snížený práh citlivosti na 10 (předtím 15)
+      if (avg > 10) el.classList.add('speaking'); 
       else el.classList.remove('speaking');
       requestAnimationFrame(check);
     }
