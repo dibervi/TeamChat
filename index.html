@@ -9,7 +9,6 @@
     :root { --gold: #bd9b5d; --bg: #0a0a0a; --rune-stone: #222; --fire: #ffaa00; }
     body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: var(--bg); color: #e0e0e0; font-family: "Segoe UI", sans-serif; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; }
     
-    /* MATRIX - VÝRAZNĚJŠÍ */
     #matrixCanvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; opacity: 0.3; pointer-events: none; }
     .grain { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: url('https://grainy-gradients.vercel.app/noise.svg'); opacity: 0.04; pointer-events: none; z-index: 10; }
     body::after { content: ""; position: absolute; inset: 0; background: radial-gradient(circle, transparent 10%, rgba(0,0,0,1) 100%); pointer-events: none; z-index: 5; }
@@ -75,14 +74,24 @@
   const runes = ["ᚫ", "ᚱ", "ᚷ", "ᛞ", "ᛗ", "ᛟ", "ᚹ", "ᚻ", "ᚾ", "ᛁ", "ᛃ", "ᛒ"];
   const runeNames = ["Goði", "Poutník Raido", "Dárce Gebo", "Světlonoš Dagaz", "Strážce Mannaz", "Ochránce Othala", "Šířitel Wunjo", "Vládce Hagalaz", "Zkoušený Nauthiz", "Strážce Isa", "Sklizeň Jera", "Ochránce Berkano"];
 
+  // Konfigurace pro globální spojení (STUN servery)
+  const peerConfig = {
+    config: {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' }
+      ]
+    }
+  };
+
   let myPeer, myStream, audioContext;
   let isHost = false, isLocked = false;
   let activePeers = new Map(); 
   let seatToPeer = new Map();
   let dataConns = new Map();
-  let matrixSpeed = 50; // Dynamická rychlost Matrixu
 
-  // MATRIX ANIMACE (Bod 6)
+  // MATRIX ANIMACE
   const canvas = document.getElementById('matrixCanvas');
   const ctx = canvas.getContext('2d');
   let columns, drops;
@@ -95,20 +104,17 @@
   function drawMatrix() {
     ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
     const isSpeaking = !!document.querySelector('.star.speaking');
     ctx.fillStyle = isSpeaking ? "rgba(189,155,93,0.5)" : "rgba(30,30,30,0.3)"; 
     ctx.font = "15px monospace";
-
     for(let i=0; i<drops.length; i++) {
       const text = runes[Math.floor(Math.random()*runes.length)];
       ctx.fillText(text, i*20, drops[i]*20);
-      // Bod 6: Pokud se mluví, Matrix padá rychleji / častěji resetuje
       if(drops[i]*20 > canvas.height && Math.random() > (isSpeaking ? 0.90 : 0.975)) drops[i] = 0;
       drops[i]++;
     }
   }
-  setInterval(drawMatrix, matrixSpeed);
+  setInterval(drawMatrix, 50);
 
   // GENEROVÁNÍ KRUHU
   for (let i = 0; i < 12; i++) {
@@ -124,40 +130,37 @@
   const uiPanel = document.getElementById('ui-panel');
   const roomInput = document.getElementById('roomInput');
 
-  // LOGIKA PROCESU (Body 1, 2, 3)
+  // START SEKVENCE
   centerBtn.onclick = async () => {
     if (myPeer) { 
         if(isHost) toggleLock(); 
         return; 
     }
-
-    // Bod 2: Runa zmizí a čeká se
     centerBtn.classList.add('hidden'); 
-    
     try {
-      // Bod 3: Potvrzení mikrofonu
       myStream = await navigator.mediaDevices.getUserMedia({audio: true});
-      // Po povolení se objeví UI panel
       uiPanel.classList.remove('hidden'); 
+      // Aktivace audia po kliku (nutné pro prohlížeče)
+      if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioContext.state === 'suspended') await audioContext.resume();
     } catch(e) {
-      alert("Bez mikrofonu nelze vstoupit na sněm.");
+      alert("Bez mikrofonu nelze vstoupit.");
       centerBtn.classList.remove('hidden');
     }
   };
 
-  // Bod 4a: VYTVOŘIT
+  // VYTVOŘIT
   document.getElementById('btnModeCreate').onclick = () => {
     const name = roomInput.value.trim().toLowerCase();
-    if (name.length < 3) return alert("Název musí mít aspoň 3 znaky.");
+    if (name.length < 3) return alert("Název je příliš krátký.");
     
-    myPeer = new Peer(name);
+    myPeer = new Peer(name, peerConfig);
     isHost = true;
     
     myPeer.on('open', () => {
       uiPanel.classList.add('hidden');
-      centerBtn.textContent = "ᛟ"; // Bod 4a: Objeví se Runa F (Othala) pro zámek
-      centerBtn.classList.remove('hidden');
-      updateStar(0, "Goði"); // Hostitel má vždy první runu
+      centerBtn.textContent = "ᛟ"; centerBtn.classList.remove('hidden');
+      updateStar(0, "Goði");
       attachVoice(myStream, 0);
     });
 
@@ -173,21 +176,20 @@
     });
   };
 
-  // Bod 4b: PŘIPOJIT SE
+  // PŘIPOJIT SE
   document.getElementById('btnModeJoin').onclick = () => {
     const name = roomInput.value.trim().toLowerCase();
     if (!name) return;
 
-    myPeer = new Peer();
+    myPeer = new Peer(peerConfig);
     myPeer.on('open', () => {
-      uiPanel.classList.add('hidden'); // Bod 4b: Střed bude čistý
+      uiPanel.classList.add('hidden');
       const conn = myPeer.connect(name);
       dataConns.set(name, conn);
       conn.on('open', () => conn.send({type: 'join'}));
       conn.on('data', d => handleSignaling(d, name));
       myPeer.call(name, myStream);
-      
-      updateStar(0, "Goði"); // Vidí hostitele
+      updateStar(0, "Goði");
       attachVoice(myStream, 0); 
     });
   };
@@ -195,10 +197,8 @@
   function toggleLock() {
     isLocked = !isLocked;
     centerBtn.classList.toggle('locked', isLocked);
-    alert(isLocked ? "Sněm uzavřen" : "Sněm otevřen pro poutníky");
   }
 
-  // Bod 5: PŘIŘAZOVÁNÍ RUN A SIGNALIZACE
   function handleSignaling(data, senderId) {
     if (data.type === 'join' && isHost) {
       let seat = null;
@@ -233,9 +233,10 @@
     });
   }
 
-  // Bod 5: ROZSVĚCOVÁNÍ PODLE MLUVENÍ
   async function attachVoice(stream, seat) {
     if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioContext.state === 'suspended') await audioContext.resume();
+    
     const analyser = audioContext.createAnalyser();
     const source = audioContext.createMediaStreamSource(stream);
     source.connect(analyser);
